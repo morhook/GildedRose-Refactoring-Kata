@@ -111,7 +111,7 @@ end
 def check_items(items, expected_strings)
   # ex. [ [item, 'expected'],
   #       [item, 'expected'] ]
-  items_strings = items.zip(expected_strings.map{|string| string.join(', ')})
+  items_strings = items.zip(expected_strings.map { |string| string.join(', ') })
 
   items_strings.each do |(item, expected_string)|
     expect(item.to_s).to eq expected_string
