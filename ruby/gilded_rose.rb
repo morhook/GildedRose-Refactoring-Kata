@@ -5,8 +5,12 @@ class GildedRose
   end
 
   def update_quality
-    @items.map { |item| ItemHandler.classify(item).call }
+    items.map { |item| ItemHandler.classify(item).call }
   end
+
+  private
+
+  attr_reader :items
 end
 
 # Item
