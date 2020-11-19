@@ -1,64 +1,17 @@
+# Gilded Rose
 class GildedRose
-
   def initialize(items)
     @items = items
   end
 
-  def update_quality()
-    @items.each do |item|
-      item.decrement_quality unless item.aged_brie? || item.sulferas? || item.backstage_pass?
-      item.increment_quality if item.aged_brie? || item.backstage_pass?
-      item.sell_in -= 1 unless item.sulferas?
-
-      #   if !item.aged_brie? && !item.backstage_pass?
-      #     if item.quality > 0
-      #       if !item.sulferas?
-      #         item.decrement_quality
-      #       end
-      #     end
-      #   else
-      #     if item.quality < 50
-      #       item.increment_quality
-
-      #       if item.backstage_pass?
-      #         if item.sell_in < 11 && item.quality < 50
-      #           item.increment_quality
-      #         end
-
-      #         if item.sell_in < 6 && item.quality < 50
-      #           item.increment_quality
-      #         end
-      #       end
-      #     end
-      #   end
-
-
-      #   if !item.sulferas?
-      #     item.sell_in = item.sell_in - 1
-      #   end
-
-
-      #   if item.sell_in < 0
-      #     if !item.aged_brie?
-      #       if !item.backstage_pass?
-      #         if item.quality > 0 && !item.sulferas?
-      #           item.decrement_quality
-      #         end
-      #       else
-      #         item.zero_quality
-      #       end
-      #     else
-      #       if item.quality < 50
-      #         item.increment_quality
-      #       end
-      #     end
-      # end
-    end
+  def update_quality
+    @items.map { |item| ItemHandler.classify(item).call }
   end
 end
 
+# Item
 class Item
-  attr_accessor :name, :sell_in, :quality
+  attr_reader :name, :sell_in, :quality
 
   def initialize(name, sell_in, quality)
     @name = name
@@ -71,29 +24,84 @@ class Item
   end
 
   def increment_quality
-    @quality += 1
+    self.quality += 1 if quality < 50
   end
 
   def decrement_quality
-    @quality -= 1
+    self.quality -= 1 if quality > 0
   end
 
-  def zero_quality
-    @quality = 0
+  def decrement_sell_in
+    self.sell_in -= 1
   end
 
-  def aged_brie?
-    name == "Aged Brie"
+  def expire
+    self.quality = 0
   end
 
-  def backstage_pass?
-    name == "Backstage passes to a TAFKAL80ETC concert"
+  def expired?
+    sell_in < 0
   end
 
-  def sulferas?
-    name == "Sulfuras, Hand of Ragnaros"
+  private
+
+  attr_writer :name, :sell_in, :quality
+end
+
+# Handler
+class Handler
+  attr_reader :item
+
+  def initialize(item)
+    @item = item
   end
 
-  def update_quality
+  # Aged Brie
+  class AgedBrie < Handler
+    def call
+      item.increment_quality
+      item.decrement_sell_in
+      item.increment_quality if item.sell_in < 0
+    end
+  end
+
+  # Tickets
+  class Tickets < Handler
+    def call
+      item.increment_quality
+      item.increment_quality if item.sell_in < 11
+      item.decrement_sell_in
+      item.expire if item.expired?
+    end
+  end
+
+  # Sulferas
+  class Sulfuras < Handler
+    def call
+      item.increment_quality
+    end
+  end
+
+  # Default
+  class Default < Handler
+    def call
+      item.decrement_quality
+      item.decrement_sell_in
+      item.decrement_quality if item.expired?
+    end
+  end
+end
+
+# Item Handler
+class ItemHandler
+  HANDLER_MAP = {
+    'Aged Brie' => ::Handler::AgedBrie,
+    'Backstage passes to a TAFKAL80ETC concert' => ::Handler::Tickets,
+    'Sulfuras, Hand of Ragnaros' => ::Handler::Sulfuras
+  }.freeze
+
+  def self.classify(item)
+    handler = HANDLER_MAP[item.name] || ::Handler::Default
+    handler.new(item)
   end
 end
